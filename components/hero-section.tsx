@@ -12,7 +12,7 @@ export function HeroSection() {
               AI-Powered Food Delivery
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground lg:text-5xl xl:text-6xl text-balance">
-              Order food with <span className="text-primary">natural language</span>
+              order da Nom-Noms with <span className="text-primary">x402 on Monad</span>
             </h1>
             <p className="max-w-lg text-lg text-muted-foreground text-pretty">
               Just tell our AI what you&apos;re craving. We&apos;ll find the best restaurants, build your order, and

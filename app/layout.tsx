@@ -8,7 +8,7 @@ const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"
 
 export const metadata: Metadata = {
   title: "DaNomNoms - AI Food Delivery Agent",
-  description: "Order food with AI-powered delivery using x402 micropayments on Monad",
+  description: "Order Da Nom Noms with AI-powered delivery using x402 micropayments on Monad",
     generator: 'v0.app'
 }
 
