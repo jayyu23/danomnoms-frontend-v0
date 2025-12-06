@@ -44,6 +44,7 @@ export default function CheckoutPage() {
       await wallet.connect({ client })
 
       // Wrap fetch with payment
+      // wrapFetchWithPayment will automatically handle 402 responses and prompt for payment
       const fetchPay = wrapFetchWithPayment(fetch, client, wallet)
 
       // Make payment request
@@ -53,8 +54,8 @@ export default function CheckoutPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amount: parseFloat(amount),
-          orderId,
+          amount: amount ? parseFloat(amount) : 0,
+          orderId: orderId || "",
         }),
       })
 
@@ -65,14 +66,24 @@ export default function CheckoutPage() {
         
         // Redirect to success page after 2 seconds
         setTimeout(() => {
-          router.push(`/checkout/success?orderId=${orderId}&tx=${data.tx?.hash || data.tx}`)
+          if (orderId) {
+            router.push(`/checkout/success?orderId=${orderId}&tx=${data.tx?.hash || data.tx}`)
+          }
         }, 2000)
       } else {
-        const errorData = await res.json()
-        setError(errorData.error || "Payment failed")
+        let errorMessage = "Payment failed"
+        try {
+          const errorData = await res.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch (e) {
+          // If response isn't JSON, use status text
+          errorMessage = res.statusText || errorMessage
+        }
+        setError(errorMessage)
         setStatus("error")
       }
     } catch (error: any) {
+      console.error("Payment error:", error)
       setError(error.message || "Payment error occurred")
       setStatus("error")
     }
