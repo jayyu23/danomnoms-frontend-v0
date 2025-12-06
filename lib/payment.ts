@@ -21,7 +21,7 @@ export async function processPayment(amount: number, orderId: string): Promise<{
     // Wrap fetch with payment
     const fetchPay = wrapFetchWithPayment(fetch, client, wallet)
 
-    // Make payment request
+    // Make payment request (amount will be divided by 1000 on server side)
     const res = await fetchPay("/api/payment", {
       method: "POST",
       headers: {

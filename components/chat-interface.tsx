@@ -7,7 +7,7 @@ import { Send, Loader2, Bot, User, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { MessageContent } from "@/components/message-content"
-import { usePayment } from "@/hooks/use-payment"
+import { useAccount } from "wagmi"
 
 export type MessageRole = "user" | "assistant"
 
@@ -50,7 +50,7 @@ export function ChatInterface() {
   const [pendingOrderTotal, setPendingOrderTotal] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const { processPayment, isPending: isPaymentPending, isConnected, address } = usePayment()
+  const { isConnected, address } = useAccount()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -98,85 +98,28 @@ export function ChatInterface() {
       return
     }
 
-    setIsProcessingPayment(true)
     const orderId = `ORDER-${Date.now()}`
+    const demoAmount = total / 1000
 
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Requesting payment authorization via x402 on Monad...",
+        content: "Redirecting to checkout to complete payment via x402 on Monad...",
         toolCalls: [
           {
             name: "request_payment_authorization",
-            args: { amount: total, currency: "USD", protocol: "x402", network: "Monad Testnet" },
+            args: { amount: demoAmount, currency: "USDC", protocol: "x402", network: "Monad Testnet" },
           },
         ],
         timestamp: new Date(),
       },
     ])
 
-    try {
-      const paymentResult = await processPayment(total, orderId)
-
-      if (paymentResult.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `Payment authorized! Sent ${paymentResult.monAmount} MON. Transaction: ${String(paymentResult.tx).substring(0, 20)}... Creating your DoorDash delivery now...`,
-            toolCalls: [
-              {
-                name: "doordash.createDelivery",
-                args: {
-                  pickup: `${restaurant}, 123 Market St`,
-                  dropoff: "456 Pine St, San Francisco",
-                },
-                result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },
-              },
-            ],
-            timestamp: new Date(),
-          },
-        ])
-
-        await delay(1500)
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "DELIVERY_TRACKER",
-            timestamp: new Date(),
-          },
-        ])
-        setPendingOrderTotal(null)
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `Payment failed: ${paymentResult.error}. Please try again or check your wallet.`,
-            timestamp: new Date(),
-          },
-        ])
-      }
-    } catch (error: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `Payment error: ${error.message || "Unknown error"}. Please try again.`,
-          timestamp: new Date(),
-        },
-      ])
-    } finally {
-      setIsProcessingPayment(false)
-    }
+    // Redirect to checkout page
+    const checkoutUrl = `/checkout?amount=${total}&orderId=${orderId}&restaurant=${encodeURIComponent(restaurant)}`
+    window.location.href = checkoutUrl
   }
 
   return (
@@ -209,7 +152,7 @@ export function ChatInterface() {
                 <MessageContent
                   message={message}
                   onOrderConfirm={handleOrderConfirm}
-                  isProcessingPayment={isProcessingPayment || isPaymentPending}
+                  isProcessingPayment={isProcessingPayment}
                 />
               </div>
               {message.role === "user" && (

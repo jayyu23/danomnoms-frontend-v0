@@ -12,6 +12,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { amount, orderId } = body
 
+    // Divide by 1000 for demo pricing (e.g., $24.42 -> $0.02442)
+    const demoAmount = amount / 1000
+
     // This avoids the Solana dependency issue in the preview environment
     const isDemoMode = !process.env.THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY === ""
 
@@ -25,7 +28,8 @@ export async function POST(request: Request) {
         tx: {
           hash: `0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`,
           network: "monad-testnet",
-          amount: amount,
+          amount: demoAmount,
+          currency: "USDC",
         },
         orderId,
       })
@@ -50,7 +54,7 @@ export async function POST(request: Request) {
       method: "POST",
       paymentData: paymentData || undefined,
       network: chains.monadTestnet,
-      price: `$${amount}`,
+      price: `$${demoAmount}`,
       payTo: process.env.SERVER_WALLET_ADDRESS!,
       facilitator: thirdwebX402Facilitator,
     })
