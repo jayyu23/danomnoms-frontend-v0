@@ -3,69 +3,75 @@ import { Star, Clock, DollarSign } from "lucide-react"
 const restaurants = [
   {
     id: 1,
-    name: "Sushi Master",
+    name: "Wasabi Saratoga",
     image: "/elegant-sushi-restaurant-food.jpg",
     rating: 4.8,
-    reviews: 324,
-    deliveryTime: "25-35",
-    deliveryFee: 2.99,
-    cuisine: "Japanese",
+    reviews: 450,
+    deliveryTime: "35",
+    deliveryFee: 0,
+    cuisine: "Japanese, Sushi",
     priceLevel: 2,
+    link: "https://www.doordash.com/store/28214638/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzMsMTEwMDA5LDExMDAxMywxNDQsMTc3LDI4NF19&pickup=false",
   },
   {
     id: 2,
-    name: "Pizza Palace",
+    name: "Rustic Pizza and Eats",
     image: "/wood-fired-pizza-restaurant.jpg",
-    rating: 4.6,
-    reviews: 512,
-    deliveryTime: "20-30",
+    rating: 4.7,
+    reviews: 320,
+    deliveryTime: "30",
     deliveryFee: 0,
-    cuisine: "Italian",
+    cuisine: "Italian, Pizzeria",
     priceLevel: 1,
+    link: "https://www.doordash.com/store/33828431/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzIsMTAwMzMzLDE3NV19&pickup=false",
   },
   {
     id: 3,
-    name: "Burger Barn",
+    name: "The Burger Den",
     image: "/gourmet-burger-restaurant-food.jpg",
-    rating: 4.7,
-    reviews: 289,
-    deliveryTime: "15-25",
-    deliveryFee: 1.99,
-    cuisine: "American",
+    rating: 4.3,
+    reviews: 200,
+    deliveryTime: "38",
+    deliveryFee: 0,
+    cuisine: "Burgers, American",
     priceLevel: 2,
+    link: "https://www.doordash.com/store/1635186/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzIsMTAwMzMzLDExMDAxMywxNzYsMTc3LDE5MywxOTVdfQ==&pickup=false",
   },
   {
     id: 4,
-    name: "Taco Town",
-    image: "/authentic-mexican-tacos-food.jpg",
-    rating: 4.5,
-    reviews: 198,
-    deliveryTime: "20-30",
-    deliveryFee: 2.49,
-    cuisine: "Mexican",
-    priceLevel: 1,
+    name: "Sunny Wok",
+    image: "/indian-curry-dishes-restaurant.jpg",
+    rating: 4.6,
+    reviews: 500,
+    deliveryTime: "40",
+    deliveryFee: 0,
+    cuisine: "Chinese",
+    priceLevel: 2,
+    link: "https://www.doordash.com/store/310763/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzMsMTEwMDEzLDE3NiwxNzcsMTkzLDE5NV19&pickup=false",
   },
   {
     id: 5,
-    name: "Green Bowl",
-    image: "/healthy-salad-bowl-restaurant.png",
-    rating: 4.9,
-    reviews: 156,
-    deliveryTime: "15-25",
-    deliveryFee: 3.49,
-    cuisine: "Healthy",
+    name: "BUA Thai + Sushi",
+    image: "/elegant-sushi-restaurant-food.jpg",
+    rating: 4.6,
+    reviews: 380,
+    deliveryTime: "45",
+    deliveryFee: 0,
+    cuisine: "Thai, Sushi",
     priceLevel: 2,
+    link: "https://www.doordash.com/store/349218/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzMsMTEwMDEzLDE3N119&pickup=false",
   },
   {
     id: 6,
-    name: "Curry House",
-    image: "/indian-curry-dishes-restaurant.jpg",
-    rating: 4.7,
-    reviews: 234,
-    deliveryTime: "30-40",
-    deliveryFee: 1.99,
-    cuisine: "Indian",
-    priceLevel: 2,
+    name: "Domino's",
+    image: "/fresh-italian-pizza.jpg",
+    rating: 4.6,
+    reviews: 1200,
+    deliveryTime: "25",
+    deliveryFee: 0,
+    cuisine: "Pizza",
+    priceLevel: 1,
+    link: "https://www.doordash.com/store/34238397/?cursor=eyJzdG9yZV9wcmltYXJ5X3ZlcnRpY2FsX2lkcyI6WzEsNCwxMDAzMzNdfQ==&pickup=false",
   },
 ]
 
@@ -73,9 +79,8 @@ export function RestaurantGrid() {
   return (
     <section className="py-8">
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Popular near you</h2>
-          <button className="text-sm font-medium text-primary hover:underline">See all</button>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-foreground">Popular Restaurants Available</h2>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
@@ -89,7 +94,12 @@ export function RestaurantGrid() {
 
 function RestaurantCard({ restaurant }: { restaurant: (typeof restaurants)[0] }) {
   return (
-    <div className="group cursor-pointer overflow-hidden rounded-xl bg-card border border-border transition-shadow hover:shadow-lg">
+    <a
+      href={restaurant.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group cursor-pointer overflow-hidden rounded-xl bg-card border border-border transition-shadow hover:shadow-lg block"
+    >
       <div className="relative overflow-hidden">
         <img
           src={restaurant.image || "/placeholder.svg"}
@@ -126,6 +136,6 @@ function RestaurantCard({ restaurant }: { restaurant: (typeof restaurants)[0] })
           </div>
         </div>
       </div>
-    </div>
+    </a>
   )
 }

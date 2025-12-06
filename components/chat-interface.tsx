@@ -221,7 +221,33 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
 
     await delay(1000)
 
-    // Step 3: Build cart and request approval
+    // Step 3: Build cart and request approval - choose restaurant based on user input
+    let restaurant = "The Burger Den"
+    let items = ["Classic Burger", "French Fries"]
+    let subtotal = 18.5
+    let tax = 1.57
+    let total = 20.07
+
+    if (lowerInput.includes("sushi") || lowerInput.includes("japanese")) {
+      restaurant = "Wasabi Saratoga"
+      items = ["Salmon Roll", "Miso Soup"]
+      subtotal = 22.5
+      tax = 1.91
+      total = 24.41
+    } else if (lowerInput.includes("pizza") || lowerInput.includes("italian")) {
+      restaurant = "Rustic Pizza and Eats"
+      items = ["Margherita Pizza", "Caesar Salad"]
+      subtotal = 19.99
+      tax = 1.70
+      total = 21.69
+    } else if (lowerInput.includes("chinese") || lowerInput.includes("wok")) {
+      restaurant = "Sunny Wok"
+      items = ["Kung Pao Chicken", "Fried Rice"]
+      subtotal = 16.99
+      tax = 1.44
+      total = 18.43
+    }
+
     setMessages((prev) => [
       ...prev,
       {
@@ -231,12 +257,12 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
         toolCalls: [
           {
             name: "build_cart",
-            args: { restaurant: "Sushi Master", items: ["Dragon Roll", "Miso Soup"] },
+            args: { restaurant, items },
           },
           {
             name: "compute_cost_estimate",
-            args: { subtotal: 24.5, tax: 2.08, delivery: 4.99 },
-            result: { total: 31.57 },
+            args: { subtotal, tax, delivery: 0 },
+            result: { total },
           },
         ],
         timestamp: new Date(),
@@ -266,7 +292,7 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
         toolCalls: [
           {
             name: "request_payment_authorization",
-            args: { amount: 31.57, currency: "USD", protocol: "x402" },
+            args: { amount: 24.41, currency: "USD", protocol: "x402" },
           },
         ],
         timestamp: new Date(),
@@ -285,7 +311,7 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
           {
             name: "doordash.createDelivery",
             args: {
-              pickup: "Sushi Master, 123 Market St",
+              pickup: "Wasabi Saratoga, 123 Market St",
               dropoff: "456 Pine St, San Francisco",
             },
             result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },

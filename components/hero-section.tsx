@@ -44,7 +44,7 @@ export function HeroSection() {
                   className="h-14 px-8 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
                 >
                   <MessageCircle className="mr-2 h-5 w-5" />
-                  Chat Now - Order with AI
+                  Order Now with AI
                 </Button>
               </Link>
               <p className="mt-3 text-sm text-muted-foreground">No menus. No scrolling. Just tell us what you want.</p>

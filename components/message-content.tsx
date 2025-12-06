@@ -18,20 +18,28 @@ export function MessageContent({ message }: MessageContentProps) {
         <p className="text-sm">I found these great options nearby:</p>
         <div className="space-y-2">
           <RestaurantCard
-            name="Sushi Master"
-            cuisine="Japanese"
+            name="Wasabi Saratoga"
+            cuisine="Japanese, Sushi"
             rating={4.8}
-            deliveryTime="25-35 min"
-            deliveryFee={4.99}
-            image="/bustling-sushi-restaurant.png"
+            deliveryTime="35 min"
+            deliveryFee={0}
+            image="/elegant-sushi-restaurant-food.jpg"
           />
           <RestaurantCard
-            name="Pizza Palace"
-            cuisine="Italian"
-            rating={4.5}
-            deliveryTime="30-40 min"
-            deliveryFee={3.99}
-            image="/bustling-pizza-restaurant.png"
+            name="Rustic Pizza and Eats"
+            cuisine="Italian, Pizza"
+            rating={4.7}
+            deliveryTime="30 min"
+            deliveryFee={0}
+            image="/wood-fired-pizza-restaurant.jpg"
+          />
+          <RestaurantCard
+            name="Sunny Wok"
+            cuisine="Chinese"
+            rating={4.6}
+            deliveryTime="40 min"
+            deliveryFee={0}
+            image="/indian-curry-dishes-restaurant.jpg"
           />
         </div>
       </div>
@@ -41,21 +49,21 @@ export function MessageContent({ message }: MessageContentProps) {
   if (message.content === "ORDER_CARD") {
     return (
       <OrderCard
-        restaurant="Sushi Master"
+        restaurant="Wasabi Saratoga"
         items={[
-          { name: "Dragon Roll", price: 16.5, quantity: 1 },
-          { name: "Miso Soup", price: 4.0, quantity: 2 },
+          { name: "Salmon Roll", price: 14.5, quantity: 1 },
+          { name: "Miso Soup", price: 8.0, quantity: 1 },
         ]}
-        subtotal={24.5}
-        tax={2.08}
-        deliveryFee={4.99}
-        total={31.57}
+        subtotal={22.5}
+        tax={1.91}
+        deliveryFee={0}
+        total={24.41}
       />
     )
   }
 
   if (message.content === "DELIVERY_TRACKER") {
-    return <DeliveryTracker deliveryId="DD-X7K9M2" restaurant="Sushi Master" eta="25-35 min" />
+    return <DeliveryTracker deliveryId="DD-X7K9M2" restaurant="Wasabi Saratoga" eta="35 min" />
   }
 
   return (
