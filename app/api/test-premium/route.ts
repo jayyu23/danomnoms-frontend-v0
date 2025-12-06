@@ -116,26 +116,83 @@ export async function GET(request: Request) {
 
         // Payment data exists, validate and settle the payment
         console.log("Payment data found, calling settlePayment...");
-        const result: any = await x402.settlePayment({
-            resourceUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/test-premium`,
-            method: "GET",
-            paymentData: paymentData,
-            network: chains.monadTestnet, // payable on monad testnet
-            price: "$0.0001", // Amount per request
-            payTo: serverWallet || "", // payment receiver
-            facilitator: thirdwebX402Facilitator,
-        });
+        try {
+            const result: any = await x402.settlePayment({
+                resourceUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/test-premium`,
+                method: "GET",
+                paymentData: paymentData,
+                network: chains.monadTestnet, // payable on monad testnet
+                price: "$0.0001", // Amount per request
+                payTo: serverWallet || "", // payment receiver
+                facilitator: thirdwebX402Facilitator,
+            });
 
-        if (result.status === 200) {
-            // If payment is settled, return paid response
-            return NextResponse.json({ message: "Paid! Monad is blazing fast ⚡", tx: result.paymentReceipt });
-        } else {
-            // send payment status
-            return new NextResponse(
-            JSON.stringify(result.responseBody),
+            if (result.status === 200) {
+                // If payment is settled, return paid response
+                return NextResponse.json({ message: "Paid! Monad is blazing fast ⚡", tx: result.paymentReceipt });
+            } else if (result.status === 402) {
+                // Payment required - return 402 with proper format
+                const responseBody = result.responseBody || {
+                    x402Version: 1,
+                    accepts: [
+                        {
+                            scheme: "exact",
+                            network: "eip155:10143",
+                            maxAmountRequired: "100",
+                            payTo: serverWallet || "",
+                            asset: "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+                            resource: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/test-premium`,
+                            description: "Access to premium content",
+                            mimeType: "application/json",
+                            maxTimeoutSeconds: 300,
+                            outputSchema: {
+                                type: "object",
+                                properties: {
+                                    message: { type: "string" },
+                                    tx: { type: "object" }
+                                }
+                            },
+                            extra: {
+                                name: "USDC",
+                                version: "2"
+                            },
+                        },
+                    ],
+                };
+                
+                return new NextResponse(
+                    JSON.stringify(responseBody),
+                    {
+                        status: 402,
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...(result.responseHeaders || {}),
+                        },
+                    }
+                );
+            } else {
+                // Other error statuses
+                return new NextResponse(
+                    JSON.stringify(result.responseBody || { error: "Payment validation failed" }),
+                    {
+                        status: result.status || 500,
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...(result.responseHeaders || {}),
+                        },
+                    }
+                );
+            }
+        } catch (settleError: any) {
+            console.error("Payment settlement error:", settleError);
+            return NextResponse.json(
+                { 
+                    error: "Payment settlement failed",
+                    message: settleError?.message || "Unknown error",
+                },
                 {
-                    status: result.status,
-                    headers: { "Content-Type": "application/json", ...(result.responseHeaders || {}) },
+                    status: 500,
+                    headers: { "Content-Type": "application/json" },
                 }
             );
         }
