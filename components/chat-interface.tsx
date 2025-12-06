@@ -7,6 +7,7 @@ import { Send, Loader2, Bot, User, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { MessageContent } from "@/components/message-content"
+import { processPayment } from "@/lib/payment"
 
 export type MessageRole = "user" | "assistant"
 
@@ -45,6 +46,8 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [pendingOrderTotal, setPendingOrderTotal] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -71,12 +74,96 @@ export function ChatInterface() {
     setIsLoading(true)
 
     // Simulate AI response with tool calls
-    await simulateAgentResponse(input, setMessages)
+    await simulateAgentResponse(input, messages, setMessages, setPendingOrderTotal)
     setIsLoading(false)
   }
 
   const handleSuggestion = (prompt: string) => {
     setInput(prompt)
+  }
+
+  const handleOrderConfirm = async (total: number, restaurant: string) => {
+    setIsProcessingPayment(true)
+    const orderId = `ORDER-${Date.now()}`
+
+    // Add payment request message
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Requesting payment authorization via x402...",
+        toolCalls: [
+          {
+            name: "request_payment_authorization",
+            args: { amount: total, currency: "USD", protocol: "x402" },
+          },
+        ],
+        timestamp: new Date(),
+      },
+    ])
+
+    try {
+      // Process real x402 payment
+      const paymentResult = await processPayment(total, orderId)
+
+      if (paymentResult.success) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Payment authorized! Transaction confirmed. Creating your DoorDash delivery now...`,
+            toolCalls: [
+              {
+                name: "doordash.createDelivery",
+                args: {
+                  pickup: `${restaurant}, 123 Market St`,
+                  dropoff: "456 Pine St, San Francisco",
+                },
+                result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },
+              },
+            ],
+            timestamp: new Date(),
+          },
+        ])
+
+        await delay(1500)
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "DELIVERY_TRACKER",
+            timestamp: new Date(),
+          },
+        ])
+        setPendingOrderTotal(null)
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Payment failed: ${paymentResult.error}. Please try again.`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+    } catch (error: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Payment error: ${error.message || "Unknown error"}. Please try again.`,
+          timestamp: new Date(),
+        },
+      ])
+    } finally {
+      setIsProcessingPayment(false)
+    }
   }
 
   return (
@@ -100,7 +187,11 @@ export function ChatInterface() {
                   message.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary",
                 )}
               >
-                <MessageContent message={message} />
+                <MessageContent 
+                  message={message} 
+                  onOrderConfirm={handleOrderConfirm}
+                  isProcessingPayment={isProcessingPayment}
+                />
               </div>
               {message.role === "user" && (
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20">
@@ -176,7 +267,12 @@ export function ChatInterface() {
 }
 
 // Simulate AI agent response with tool calls
-async function simulateAgentResponse(userInput: string, setMessages: React.Dispatch<React.SetStateAction<Message[]>>) {
+async function simulateAgentResponse(
+  userInput: string,
+  currentMessages: Message[],
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+  setPendingOrderTotal: React.Dispatch<React.SetStateAction<number | null>>,
+) {
   const lowerInput = userInput.toLowerCase()
 
   // Simulate restaurant search
@@ -271,18 +367,39 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
 
     await delay(800)
 
-    // Step 4: Show order card
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "ORDER_CARD",
-        timestamp: new Date(),
-      },
-    ])
+    // Step 4: Show order card and store total
+    setPendingOrderTotal(total)
+    setMessages((prev) => {
+      const lastMessage = prev[prev.length - 1]
+      return [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "ORDER_CARD",
+          toolCalls: lastMessage?.toolCalls, // Pass toolCalls from the previous message with order details
+          timestamp: new Date(),
+        },
+      ]
+    })
   } else if (lowerInput.includes("confirm") || lowerInput.includes("yes") || lowerInput.includes("approve")) {
-    // Payment authorization flow
+    // Payment authorization flow with x402
+    // Get the last order total from messages or use default
+    let orderTotal = 24.41 // default fallback
+    const lastOrderMessage = Array.from({ length: currentMessages.length })
+      .map((_, i) => currentMessages[currentMessages.length - 1 - i])
+      .find((msg) => msg.content === "ORDER_CARD")
+    
+    // Try to extract total from tool calls if available
+    if (lastOrderMessage) {
+      const costEstimate = lastOrderMessage.toolCalls?.find((tc: ToolCall) => tc.name === "compute_cost_estimate")
+      if (costEstimate?.result && typeof costEstimate.result === "object" && "total" in costEstimate.result) {
+        orderTotal = costEstimate.result.total as number
+      }
+    }
+    
+    const orderId = `ORDER-${Date.now()}`
+
     setMessages((prev) => [
       ...prev,
       {
@@ -292,46 +409,72 @@ async function simulateAgentResponse(userInput: string, setMessages: React.Dispa
         toolCalls: [
           {
             name: "request_payment_authorization",
-            args: { amount: 24.41, currency: "USD", protocol: "x402" },
+            args: { amount: orderTotal, currency: "USD", protocol: "x402" },
           },
         ],
         timestamp: new Date(),
       },
     ])
 
-    await delay(2000)
+    try {
+      // Process real x402 payment
+      const paymentResult = await processPayment(orderTotal, orderId)
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "Payment authorized! Creating your DoorDash delivery now...",
-        toolCalls: [
+      if (paymentResult.success) {
+        setMessages((prev) => [
+          ...prev,
           {
-            name: "doordash.createDelivery",
-            args: {
-              pickup: "Wasabi Saratoga, 123 Market St",
-              dropoff: "456 Pine St, San Francisco",
-            },
-            result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Payment authorized! Transaction: ${JSON.stringify(paymentResult.tx).substring(0, 50)}... Creating your DoorDash delivery now...`,
+            toolCalls: [
+              {
+                name: "doordash.createDelivery",
+                args: {
+                  pickup: "Wasabi Saratoga, 123 Market St",
+                  dropoff: "456 Pine St, San Francisco",
+                },
+                result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },
+              },
+            ],
+            timestamp: new Date(),
           },
-        ],
-        timestamp: new Date(),
-      },
-    ])
+        ])
 
-    await delay(1500)
+        await delay(1500)
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "DELIVERY_TRACKER",
-        timestamp: new Date(),
-      },
-    ])
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "DELIVERY_TRACKER",
+            timestamp: new Date(),
+          },
+        ])
+        setPendingOrderTotal(null)
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Payment failed: ${paymentResult.error}. Please try again.`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+    } catch (error: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Payment error: ${error.message || "Unknown error"}. Please try again.`,
+          timestamp: new Date(),
+        },
+      ])
+    }
   } else {
     // Default response
     setMessages((prev) => [

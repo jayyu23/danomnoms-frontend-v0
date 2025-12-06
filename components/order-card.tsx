@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Shield } from "lucide-react"
+import { Shield, Loader2 } from "lucide-react"
 
 interface OrderItem {
   name: string
@@ -16,9 +16,11 @@ interface OrderCardProps {
   tax: number
   deliveryFee: number
   total: number
+  onConfirm?: () => void
+  isProcessing?: boolean
 }
 
-export function OrderCard({ restaurant, items, subtotal, tax, deliveryFee, total }: OrderCardProps) {
+export function OrderCard({ restaurant, items, subtotal, tax, deliveryFee, total, onConfirm, isProcessing }: OrderCardProps) {
   return (
     <div className="rounded-xl bg-background border border-border p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -59,9 +61,22 @@ export function OrderCard({ restaurant, items, subtotal, tax, deliveryFee, total
         </div>
       </div>
 
-      <Button className="w-full">Confirm Order</Button>
+      <Button 
+        className="w-full" 
+        onClick={onConfirm}
+        disabled={isProcessing || !onConfirm}
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Processing Payment...
+          </>
+        ) : (
+          "Confirm Order"
+        )}
+      </Button>
       <p className="text-center text-xs text-muted-foreground">
-        Say &quot;confirm&quot; or &quot;approve&quot; to authorize payment
+        Pay with x402 on Monad testnet
       </p>
     </div>
   )
