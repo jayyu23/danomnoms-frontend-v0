@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createThirdwebClient } from "thirdweb"
 import { wrapFetchWithPayment } from "thirdweb/x402"
@@ -16,7 +16,7 @@ const client = createThirdwebClient({
 export default function CheckoutPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [status, setStatus] = useState<"loading" | "processing" | "success" | "error">("loading")
+  const [status, setStatus] = useState<"idle" | "connecting" | "processing" | "success" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [txHash, setTxHash] = useState<string | null>(null)
 
@@ -25,63 +25,43 @@ export default function CheckoutPage() {
   const restaurant = searchParams.get("restaurant") || "Restaurant"
   const demoAmount = amount ? parseFloat(amount) / 1000 : 0
 
-  useEffect(() => {
+  const processPayment = async () => {
     if (!amount || !orderId) {
       setError("Missing payment information")
       setStatus("error")
       return
     }
 
-    processPayment()
-  }, [])
-
-  const processPayment = async () => {
     try {
-      setStatus("processing")
+      setStatus("connecting")
 
-      // Connect wallet
+      // Connect wallet first
       const wallet = createWallet("io.metamask")
       await wallet.connect({ client })
 
+      setStatus("processing")
+
       // Wrap fetch with payment
       // wrapFetchWithPayment will automatically handle 402 responses and prompt for payment
+      // When server returns 402, it will automatically prompt user to approve USDC spend
       const fetchPay = wrapFetchWithPayment(fetch, client, wallet)
 
-      // Make payment request
-      const res = await fetchPay("/api/payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: amount ? parseFloat(amount) : 0,
-          orderId: orderId || "",
-        }),
-      })
+      // Make payment request to payable endpoint
+      // wrapFetchWithPayment will intercept 402, prompt for payment, then retry with payment header
+      const checkoutUrl = `/api/checkout?amount=${amount}&orderId=${encodeURIComponent(orderId)}`
+      const res = await fetchPay(checkoutUrl)
 
-      if (res.ok) {
-        const data = await res.json()
-        setTxHash(data.tx?.hash || data.tx)
-        setStatus("success")
-        
-        // Redirect to success page after 2 seconds
-        setTimeout(() => {
-          if (orderId) {
-            router.push(`/checkout/success?orderId=${orderId}&tx=${data.tx?.hash || data.tx}`)
-          }
-        }, 2000)
-      } else {
-        let errorMessage = "Payment failed"
-        try {
-          const errorData = await res.json()
-          errorMessage = errorData.error || errorData.message || errorMessage
-        } catch (e) {
-          // If response isn't JSON, use status text
-          errorMessage = res.statusText || errorMessage
+      // If we get here, payment was successful
+      const data = await res.json()
+      setTxHash(data.tx?.hash || data.tx)
+      setStatus("success")
+      
+      // Redirect to success page after 2 seconds
+      setTimeout(() => {
+        if (orderId) {
+          router.push(`/checkout/success?orderId=${orderId}&tx=${data.tx?.hash || data.tx}`)
         }
-        setError(errorMessage)
-        setStatus("error")
-      }
+      }, 2000)
     } catch (error: any) {
       console.error("Payment error:", error)
       setError(error.message || "Payment error occurred")
@@ -89,12 +69,47 @@ export default function CheckoutPage() {
     }
   }
 
-  if (status === "loading") {
+  if (status === "idle") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto p-6">
+          <h1 className="text-2xl font-bold mb-4">Complete Your Order</h1>
+          <div className="bg-secondary rounded-lg p-4 space-y-2 text-sm mb-6">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Restaurant:</span>
+              <span className="font-medium">{restaurant}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount:</span>
+              <span className="font-medium">${demoAmount.toFixed(5)} USDC</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Order ID:</span>
+              <span className="font-mono text-xs">{orderId}</span>
+            </div>
+          </div>
+          <Button onClick={processPayment} className="w-full" size="lg">
+            Pay & Confirm Order
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4">
+            You will be prompted to approve USDC spend in your wallet
+          </p>
+          <Link href="/chat" className="block mt-4">
+            <Button variant="outline" className="w-full">
+              Back to Chat
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "connecting") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Preparing checkout...</p>
+          <p className="text-muted-foreground">Connecting wallet...</p>
         </div>
       </div>
     )

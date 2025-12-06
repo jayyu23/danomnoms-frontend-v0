@@ -7,13 +7,21 @@ async function getThirdwebModules() {
   return { thirdweb, x402, chains }
 }
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json()
-    const { amount, orderId } = body
+    const { searchParams } = new URL(request.url)
+    const amount = searchParams.get("amount")
+    const orderId = searchParams.get("orderId")
+
+    if (!amount || !orderId) {
+      return NextResponse.json(
+        { error: "Missing amount or orderId parameter" },
+        { status: 400 }
+      )
+    }
 
     // Divide by 1000 for demo pricing (e.g., $24.42 -> $0.02442)
-    const demoAmount = amount / 1000
+    const demoAmount = parseFloat(amount) / 1000
 
     // This avoids the Solana dependency issue in the preview environment
     const isDemoMode = !process.env.THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY === ""
@@ -52,12 +60,11 @@ export async function POST(request: Request) {
 
     // If no payment data, return 402 Payment Required
     // wrapFetchWithPayment will handle this and prompt user for payment
-    // Include payment details in response so wrapFetchWithPayment can construct payment
     if (!paymentData) {
       return NextResponse.json(
         {
           message: "Payment required",
-          price: `$${demoAmount}`,
+          price: `$${demoAmount.toFixed(5)}`,
           payTo: process.env.SERVER_WALLET_ADDRESS || "",
           network: "monad-testnet",
         },
@@ -73,17 +80,17 @@ export async function POST(request: Request) {
     // Payment data exists, validate and settle the payment
     try {
       const result: any = await x402.settlePayment({
-        resourceUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/payment`,
-        method: "POST",
+        resourceUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/checkout?amount=${amount}&orderId=${orderId}`,
+        method: "GET",
         paymentData: paymentData,
         network: chains.monadTestnet,
-        price: `$${demoAmount}`,
+        price: `$${demoAmount.toFixed(5)}`,
         payTo: process.env.SERVER_WALLET_ADDRESS!,
         facilitator: thirdwebX402Facilitator,
       })
 
       if (result.status === 200) {
-        // Payment successfully settled
+        // If payment is settled, return paid response
         return NextResponse.json({
           success: true,
           message: "Payment successful! Order confirmed.",
@@ -91,12 +98,13 @@ export async function POST(request: Request) {
           orderId,
         })
       } else if (result.status === 402) {
+        console.log("Payment required", result)
         // Payment required - return 402 with proper format for wrapFetchWithPayment
         // wrapFetchWithPayment expects: { x402Version, accepts: [...] }
         // Use the responseBody from settlePayment if available, otherwise construct it
         const responseBody = result.responseBody || {
           message: "Payment required",
-          price: `$${demoAmount}`,
+          price: `$${demoAmount.toFixed(5)}`,
           payTo: process.env.SERVER_WALLET_ADDRESS || "",
           network: "monad-testnet",
         }
@@ -113,12 +121,12 @@ export async function POST(request: Request) {
         )
       } else {
         // Other error statuses
-        const errorResponseBody = result.responseBody || { error: "Payment validation failed" }
-        const errorStatus = result.status || 500
-        const errorHeaders = result.responseHeaders || {}
+        const errorResponseBody = (result as any).responseBody || { error: "Payment validation failed" }
+        const errorStatus = (result as any).status || 500
+        const errorHeaders = (result as any).responseHeaders || {}
         
-        return NextResponse.json(
-          errorResponseBody,
+        return new NextResponse(
+          JSON.stringify(errorResponseBody),
           {
             status: errorStatus,
             headers: {
@@ -139,9 +147,9 @@ export async function POST(request: Request) {
       )
     }
   } catch (error: any) {
-    console.error("Payment error:", error)
+    console.error("Checkout error:", error)
     return NextResponse.json(
-      { error: error.message || "Server error processing payment" },
+      { error: error.message || "Server error processing checkout" },
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
