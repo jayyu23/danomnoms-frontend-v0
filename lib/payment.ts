@@ -1,18 +1,28 @@
 "use client"
 
-import { parseEther } from "viem"
+import { createThirdwebClient } from "thirdweb"
+import { wrapFetchWithPayment } from "thirdweb/x402"
+import { createWallet } from "thirdweb/wallets"
 
-export async function processPayment(
-  amount: number,
-  orderId: string,
-): Promise<{
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
+})
+
+export async function processPayment(amount: number, orderId: string): Promise<{
   success: boolean
   tx?: unknown
   error?: string
 }> {
   try {
-    // Make payment request to our API route which handles the payment server-side
-    const res = await fetch("/api/payment", {
+    // Connect wallet
+    const wallet = createWallet("io.metamask")
+    await wallet.connect({ client })
+
+    // Wrap fetch with payment
+    const fetchPay = wrapFetchWithPayment(fetch, client, wallet)
+
+    // Make payment request
+    const res = await fetchPay("/api/payment", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,18 +46,10 @@ export async function processPayment(
         error: error.error || "Payment failed",
       }
     }
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Payment error occurred"
+  } catch (error: any) {
     return {
       success: false,
-      error: errorMessage,
+      error: error.message || "Payment error occurred",
     }
   }
-}
-
-// Helper to convert USD to MON (mock rate for demo)
-export function usdToMon(usdAmount: number): bigint {
-  // Mock conversion rate: 1 MON = $2 USD
-  const monAmount = usdAmount / 2
-  return parseEther(monAmount.toString())
 }
