@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, MapPin, Wallet, ChevronDown, Settings } from "lucide-react"
+import { ArrowLeft, MapPin, ChevronDown, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatInterface } from "@/components/chat-interface"
+import { WalletButton } from "@/components/wallet-button"
 import { useState } from "react"
 
 export default function ChatPage() {
@@ -47,17 +48,8 @@ export default function ChatPage() {
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             </button>
 
-            {/* Balance Button */}
-            <button
-              onClick={() => {
-                setSpendingLimit(balance > 0 ? balance.toString() : "")
-                setShowBalanceModal(true)
-              }}
-              className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Wallet className="h-4 w-4" />
-              <span className="hidden sm:inline">${balance.toFixed(2)}</span>
-            </button>
+            {/* Wallet Button */}
+            <WalletButton />
 
             {/* Settings */}
             <Button variant="ghost" size="icon" className="rounded-full">
@@ -110,9 +102,7 @@ export default function ChatPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
-                  Spending Limit Amount
-                </label>
+                <label className="mb-2 block text-sm font-medium text-foreground">Spending Limit Amount</label>
                 <input
                   type="number"
                   step="0.01"
@@ -136,14 +126,16 @@ export default function ChatPage() {
                 </Button>
                 <Button
                   onClick={() => {
-                    const amount = parseFloat(spendingLimit)
+                    const amount = Number.parseFloat(spendingLimit)
                     if (!isNaN(amount) && amount >= 0) {
                       setBalance(amount)
                       setSpendingLimit("")
                       setShowBalanceModal(false)
                     }
                   }}
-                  disabled={!spendingLimit || parseFloat(spendingLimit) < 0 || isNaN(parseFloat(spendingLimit))}
+                  disabled={
+                    !spendingLimit || Number.parseFloat(spendingLimit) < 0 || isNaN(Number.parseFloat(spendingLimit))
+                  }
                   className="flex-1"
                 >
                   Set Spending Limit
@@ -151,7 +143,8 @@ export default function ChatPage() {
               </div>
             </div>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              This sets the maximum amount the agent can spend per order. Funds are held in your x402 spending cap and authorized per order.
+              This sets the maximum amount the agent can spend per order. Funds are held in your x402 spending cap and
+              authorized per order.
             </p>
           </div>
         </div>

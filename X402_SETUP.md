@@ -26,7 +26,7 @@ Get testnet MON tokens from the [Monad faucet](https://faucet.monad.xyz)
 
 Create a `.env.local` file in the `danomnoms-frontend-v0` directory with the following variables:
 
-```env
+\`\`\`env
 # Thirdweb Configuration
 # Get these from https://thirdweb.com/dashboard
 NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_client_id_here
@@ -37,7 +37,7 @@ SERVER_WALLET_ADDRESS=0xYourServerWalletAddress
 
 # Base URL for your application
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
-```
+\`\`\`
 
 ## Setting Up Thirdweb
 
@@ -68,4 +68,3 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 - [x402 on Monad Guide](https://docs.monad.xyz/guides/x402-guide)
 - [Thirdweb x402 Documentation](https://portal.thirdweb.com/x402)
 - [Monad Developer Discord](https://discord.gg/monad)
-
