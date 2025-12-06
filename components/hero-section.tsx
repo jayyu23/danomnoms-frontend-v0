@@ -1,4 +1,8 @@
-import { Sparkles, Zap, Shield } from "lucide-react"
+"use client"
+
+import Link from "next/link"
+import { Sparkles, Zap, Shield, MessageCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
   return (
@@ -31,6 +35,19 @@ export function HeroSection() {
                 </div>
                 <span>x402 secure payments</span>
               </div>
+            </div>
+
+            <div className="pt-4">
+              <Link href="/chat">
+                <Button
+                  size="lg"
+                  className="h-14 px-8 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                >
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                  Chat Now - Order with AI
+                </Button>
+              </Link>
+              <p className="mt-3 text-sm text-muted-foreground">No menus. No scrolling. Just tell us what you want.</p>
             </div>
           </div>
 
