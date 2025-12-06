@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { MapPin, Search, ShoppingBag, User, ChevronDown } from "lucide-react"
+import { MapPin, Search, ShoppingBag, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { WalletButton } from "@/components/wallet-button"
 
 export function Header() {
   const [address] = useState("San Francisco, CA")
@@ -47,10 +48,7 @@ export function Header() {
               0
             </span>
           </Button>
-          <Button variant="outline" size="sm" className="hidden gap-2 sm:flex bg-transparent">
-            <User className="h-4 w-4" />
-            Sign In
-          </Button>
+          <WalletButton />
         </div>
       </div>
     </header>

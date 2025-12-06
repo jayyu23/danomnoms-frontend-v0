@@ -7,7 +7,7 @@ import { Send, Loader2, Bot, User, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { MessageContent } from "@/components/message-content"
-import { processPayment } from "@/lib/payment"
+import { usePayment } from "@/hooks/use-payment"
 
 export type MessageRole = "user" | "assistant"
 
@@ -50,6 +50,8 @@ export function ChatInterface() {
   const [pendingOrderTotal, setPendingOrderTotal] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const { processPayment, isPending: isPaymentPending, isConnected, address } = usePayment()
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -73,7 +75,6 @@ export function ChatInterface() {
     setInput("")
     setIsLoading(true)
 
-    // Simulate AI response with tool calls
     await simulateAgentResponse(input, messages, setMessages, setPendingOrderTotal)
     setIsLoading(false)
   }
@@ -83,20 +84,33 @@ export function ChatInterface() {
   }
 
   const handleOrderConfirm = async (total: number, restaurant: string) => {
+    if (!isConnected) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content:
+            "Please connect your wallet first to complete the payment. Use the 'Connect Wallet' button in the header.",
+          timestamp: new Date(),
+        },
+      ])
+      return
+    }
+
     setIsProcessingPayment(true)
     const orderId = `ORDER-${Date.now()}`
 
-    // Add payment request message
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Requesting payment authorization via x402...",
+        content: "Requesting payment authorization via x402 on Monad...",
         toolCalls: [
           {
             name: "request_payment_authorization",
-            args: { amount: total, currency: "USD", protocol: "x402" },
+            args: { amount: total, currency: "USD", protocol: "x402", network: "Monad Testnet" },
           },
         ],
         timestamp: new Date(),
@@ -104,7 +118,6 @@ export function ChatInterface() {
     ])
 
     try {
-      // Process real x402 payment
       const paymentResult = await processPayment(total, orderId)
 
       if (paymentResult.success) {
@@ -113,7 +126,7 @@ export function ChatInterface() {
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: `Payment authorized! Transaction confirmed. Creating your DoorDash delivery now...`,
+            content: `Payment authorized! Sent ${paymentResult.monAmount} MON. Transaction: ${String(paymentResult.tx).substring(0, 20)}... Creating your DoorDash delivery now...`,
             toolCalls: [
               {
                 name: "doordash.createDelivery",
@@ -146,7 +159,7 @@ export function ChatInterface() {
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: `Payment failed: ${paymentResult.error}. Please try again.`,
+            content: `Payment failed: ${paymentResult.error}. Please try again or check your wallet.`,
             timestamp: new Date(),
           },
         ])
@@ -171,6 +184,12 @@ export function ChatInterface() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
+          {!isConnected && (
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 text-center">
+              <p className="text-sm text-primary">Connect your wallet to enable payments on Monad Testnet</p>
+            </div>
+          )}
+
           {messages.map((message) => (
             <div
               key={message.id}
@@ -187,10 +206,10 @@ export function ChatInterface() {
                   message.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary",
                 )}
               >
-                <MessageContent 
-                  message={message} 
+                <MessageContent
+                  message={message}
                   onOrderConfirm={handleOrderConfirm}
-                  isProcessingPayment={isProcessingPayment}
+                  isProcessingPayment={isProcessingPayment || isPaymentPending}
                 />
               </div>
               {message.role === "user" && (
@@ -266,7 +285,6 @@ export function ChatInterface() {
   )
 }
 
-// Simulate AI agent response with tool calls
 async function simulateAgentResponse(
   userInput: string,
   currentMessages: Message[],
@@ -275,7 +293,6 @@ async function simulateAgentResponse(
 ) {
   const lowerInput = userInput.toLowerCase()
 
-  // Simulate restaurant search
   await delay(1000)
 
   if (
@@ -285,7 +302,6 @@ async function simulateAgentResponse(
     lowerInput.includes("healthy") ||
     lowerInput.includes("lunch")
   ) {
-    // Step 1: List restaurants
     setMessages((prev) => [
       ...prev,
       {
@@ -304,7 +320,6 @@ async function simulateAgentResponse(
 
     await delay(1500)
 
-    // Step 2: Show restaurants
     setMessages((prev) => [
       ...prev,
       {
@@ -317,7 +332,6 @@ async function simulateAgentResponse(
 
     await delay(1000)
 
-    // Step 3: Build cart and request approval - choose restaurant based on user input
     let restaurant = "The Burger Den"
     let items = ["Classic Burger", "French Fries"]
     let subtotal = 18.5
@@ -334,7 +348,7 @@ async function simulateAgentResponse(
       restaurant = "Rustic Pizza and Eats"
       items = ["Margherita Pizza", "Caesar Salad"]
       subtotal = 19.99
-      tax = 1.70
+      tax = 1.7
       total = 21.69
     } else if (lowerInput.includes("chinese") || lowerInput.includes("wok")) {
       restaurant = "Sunny Wok"
@@ -367,7 +381,6 @@ async function simulateAgentResponse(
 
     await delay(800)
 
-    // Step 4: Show order card and store total
     setPendingOrderTotal(total)
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1]
@@ -377,106 +390,22 @@ async function simulateAgentResponse(
           id: Date.now().toString(),
           role: "assistant",
           content: "ORDER_CARD",
-          toolCalls: lastMessage?.toolCalls, // Pass toolCalls from the previous message with order details
+          toolCalls: lastMessage?.toolCalls,
           timestamp: new Date(),
         },
       ]
     })
   } else if (lowerInput.includes("confirm") || lowerInput.includes("yes") || lowerInput.includes("approve")) {
-    // Payment authorization flow with x402
-    // Get the last order total from messages or use default
-    let orderTotal = 24.41 // default fallback
-    const lastOrderMessage = Array.from({ length: currentMessages.length })
-      .map((_, i) => currentMessages[currentMessages.length - 1 - i])
-      .find((msg) => msg.content === "ORDER_CARD")
-    
-    // Try to extract total from tool calls if available
-    if (lastOrderMessage) {
-      const costEstimate = lastOrderMessage.toolCalls?.find((tc: ToolCall) => tc.name === "compute_cost_estimate")
-      if (costEstimate?.result && typeof costEstimate.result === "object" && "total" in costEstimate.result) {
-        orderTotal = costEstimate.result.total as number
-      }
-    }
-    
-    const orderId = `ORDER-${Date.now()}`
-
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Requesting payment authorization via x402...",
-        toolCalls: [
-          {
-            name: "request_payment_authorization",
-            args: { amount: orderTotal, currency: "USD", protocol: "x402" },
-          },
-        ],
+        content: "Please click the 'Confirm & Pay' button on the order card above to proceed with payment.",
         timestamp: new Date(),
       },
     ])
-
-    try {
-      // Process real x402 payment
-      const paymentResult = await processPayment(orderTotal, orderId)
-
-      if (paymentResult.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `Payment authorized! Transaction: ${JSON.stringify(paymentResult.tx).substring(0, 50)}... Creating your DoorDash delivery now...`,
-            toolCalls: [
-              {
-                name: "doordash.createDelivery",
-                args: {
-                  pickup: "Wasabi Saratoga, 123 Market St",
-                  dropoff: "456 Pine St, San Francisco",
-                },
-                result: { deliveryId: "DD-X7K9M2", eta: "25-35 min" },
-              },
-            ],
-            timestamp: new Date(),
-          },
-        ])
-
-        await delay(1500)
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "DELIVERY_TRACKER",
-            timestamp: new Date(),
-          },
-        ])
-        setPendingOrderTotal(null)
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `Payment failed: ${paymentResult.error}. Please try again.`,
-            timestamp: new Date(),
-          },
-        ])
-      }
-    } catch (error: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `Payment error: ${error.message || "Unknown error"}. Please try again.`,
-          timestamp: new Date(),
-        },
-      ])
-    }
   } else {
-    // Default response
     setMessages((prev) => [
       ...prev,
       {
