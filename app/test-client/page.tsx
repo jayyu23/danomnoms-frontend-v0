@@ -15,19 +15,39 @@ export default function TestClientPage() {
   const payAndFetch = async () => {
     setMessage("Connecting wallet...");
     try {
+      console.log("=== CLIENT: Starting payment flow ===");
+      console.log("Client ID:", process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID);
+      console.log("Client object:", client);
+      
       const wallet = createWallet("io.metamask");
+      console.log("Wallet created, connecting...");
       await wallet.connect({ client });
+      console.log("Wallet connected, address:", await wallet.getAccount()?.address);
       setMessage("Wallet connected — paying...");
 
       const fetchPay = wrapFetchWithPayment(fetch, client, wallet);
+      console.log("wrapFetchWithPayment created, making request to /api/test-premium");
       
       // payable endpoint - pings test-premium
       const res = await fetchPay("/api/test-premium"); // relative URL = no CORS
-
+      
+      console.log("=== CLIENT: Response received ===");
+      console.log("Response status:", res.status);
+      console.log("Response statusText:", res.statusText);
+      console.log("Response headers:", Object.fromEntries(res.headers.entries()));
+      console.log("Response ok:", res.ok);
+      
       const json = await res.json();
+      console.log("Response JSON:", json);
+      
       setMessage("PAID SUCCESSFULLY! 🎉\n\n" + JSON.stringify(json, null, 2));
 
     } catch (e: any) {
+      console.error("=== CLIENT: Error occurred ===");
+      console.error("Error type:", e?.constructor?.name);
+      console.error("Error message:", e?.message);
+      console.error("Error stack:", e?.stack);
+      console.error("Error details:", e);
       setMessage("ERROR: " + e.message);
     }
   };
