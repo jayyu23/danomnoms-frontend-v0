@@ -44,6 +44,7 @@ const suggestedPrompts = [
 
 const THREAD_ID_KEY = "danomnoms_thread_id"
 const USE_DEMO_MODE_KEY = "danomnoms_use_demo_mode"
+const SERVER_START_TIME_KEY = "danomnoms_server_start_time"
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
@@ -58,18 +59,49 @@ export function ChatInterface() {
   const { isConnected, address } = useAccount()
 
   // Load thread_id and demo mode preference from localStorage on mount
+  // Also check if server has restarted and regenerate thread_id if needed
   useEffect(() => {
-    const savedThreadId = localStorage.getItem(THREAD_ID_KEY)
-    const savedDemoMode = localStorage.getItem(USE_DEMO_MODE_KEY)
-    if (savedThreadId) {
-      setThreadId(savedThreadId)
+    const checkServerRestart = async () => {
+      try {
+        // Get current server start time
+        const response = await fetch("/api/server-info")
+        if (response.ok) {
+          const data = await response.json()
+          const currentServerStartTime = data.serverStartTime
+
+          // Get saved server start time from localStorage
+          const savedServerStartTime = localStorage.getItem(SERVER_START_TIME_KEY)
+
+          // If server has restarted (different start time), clear thread_id
+          if (savedServerStartTime && savedServerStartTime !== String(currentServerStartTime)) {
+            console.log("[Chat] Server restarted, clearing old thread_id")
+            localStorage.removeItem(THREAD_ID_KEY)
+            setThreadId(null)
+          }
+
+          // Update saved server start time
+          localStorage.setItem(SERVER_START_TIME_KEY, String(currentServerStartTime))
+        }
+      } catch (error) {
+        console.error("[Chat] Error checking server start time:", error)
+        // Continue with normal flow if check fails
+      }
+
+      // Load thread_id and demo mode preference
+      const savedThreadId = localStorage.getItem(THREAD_ID_KEY)
+      const savedDemoMode = localStorage.getItem(USE_DEMO_MODE_KEY)
+      if (savedThreadId) {
+        setThreadId(savedThreadId)
+      }
+      if (savedDemoMode !== null) {
+        setUseDemoMode(savedDemoMode === "true")
+      } else {
+        // Default to demo mode for now
+        setUseDemoMode(true)
+      }
     }
-    if (savedDemoMode !== null) {
-      setUseDemoMode(savedDemoMode === "true")
-    } else {
-      // Default to demo mode for now
-      setUseDemoMode(true)
-    }
+
+    checkServerRestart()
   }, [])
 
   const scrollToBottom = () => {
