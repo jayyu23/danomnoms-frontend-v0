@@ -55,12 +55,26 @@ export default function CheckoutSuccessPage() {
             Your delivery is being prepared. You'll receive updates in the chat.
           </p>
           <div className="flex gap-3">
-            <Link href="/chat" className="flex-1">
-              <Button className="w-full">
-                View Order Status
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            {txHash ? (
+              <a
+                href={`https://testnet.monadexplorer.com/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1"
+              >
+                <Button className="w-full">
+                  View Order Onchain
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            ) : (
+              <Link href="/chat" className="flex-1">
+                <Button className="w-full" disabled>
+                  View Order Onchain
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            )}
             <Link href="/" className="flex-1">
               <Button variant="outline" className="w-full">
                 Back Home
