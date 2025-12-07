@@ -62,6 +62,7 @@
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
     "react-hook-form": "^7.60.0",
+    "react-markdown": "^10.1.0",
     "react-native": "latest",
     "react-native-aes-gcm-crypto": "latest",
     "react-native-passkey": "latest",

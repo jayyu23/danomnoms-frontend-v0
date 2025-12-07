@@ -42,15 +42,35 @@ const suggestedPrompts = [
   "Find me healthy lunch options nearby",
 ]
 
+const THREAD_ID_KEY = "danomnoms_thread_id"
+const USE_DEMO_MODE_KEY = "danomnoms_use_demo_mode"
+
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [pendingOrderTotal, setPendingOrderTotal] = useState<number | null>(null)
+  const [threadId, setThreadId] = useState<string | null>(null)
+  const [useDemoMode, setUseDemoMode] = useState<boolean>(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { isConnected, address } = useAccount()
+
+  // Load thread_id and demo mode preference from localStorage on mount
+  useEffect(() => {
+    const savedThreadId = localStorage.getItem(THREAD_ID_KEY)
+    const savedDemoMode = localStorage.getItem(USE_DEMO_MODE_KEY)
+    if (savedThreadId) {
+      setThreadId(savedThreadId)
+    }
+    if (savedDemoMode !== null) {
+      setUseDemoMode(savedDemoMode === "true")
+    } else {
+      // Default to demo mode for now
+      setUseDemoMode(true)
+    }
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -72,11 +92,32 @@ export function ChatInterface() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = input
     setInput("")
     setIsLoading(true)
 
-    await simulateAgentResponse(input, messages, setMessages, setPendingOrderTotal)
-    setIsLoading(false)
+    try {
+      if (useDemoMode) {
+        await simulateAgentResponse(currentInput, messages, setMessages, setPendingOrderTotal)
+      } else {
+        await callAgentAPI(currentInput, threadId, setThreadId, setMessages, setPendingOrderTotal)
+      }
+    } catch (error) {
+      console.error("Error in chat:", error)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Falling back to demo mode.`,
+          timestamp: new Date(),
+        },
+      ])
+      // Fallback to demo mode on error
+      await simulateAgentResponse(currentInput, messages, setMessages, setPendingOrderTotal)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSuggestion = (prompt: string) => {
@@ -219,9 +260,28 @@ export function ChatInterface() {
               {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             </Button>
           </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Powered by x402 micropayments on Monad testnet
-          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-center text-xs text-muted-foreground flex-1">
+              Powered by x402 micropayments on Monad testnet
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const newMode = !useDemoMode
+                setUseDemoMode(newMode)
+                localStorage.setItem(USE_DEMO_MODE_KEY, String(newMode))
+                if (!newMode && !threadId) {
+                  // Generate new thread_id when switching to API mode
+                  const newThreadId = `thread_${Date.now().toString(36)}${Math.random().toString(36).substring(2)}`
+                  setThreadId(newThreadId)
+                  localStorage.setItem(THREAD_ID_KEY, newThreadId)
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              {useDemoMode ? "Switch to API" : "Switch to Demo"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -359,6 +419,119 @@ async function simulateAgentResponse(
         timestamp: new Date(),
       },
     ])
+  }
+}
+
+async function callAgentAPI(
+  userInput: string,
+  currentThreadId: string | null,
+  setThreadId: React.Dispatch<React.SetStateAction<string | null>>,
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+  setPendingOrderTotal: React.Dispatch<React.SetStateAction<number | null>>,
+) {
+  try {
+    console.log("[Chat] Calling agent API with prompt:", userInput.substring(0, 100))
+    
+    const response = await fetch("/api/agent/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: userInput,
+        thread_id: currentThreadId || undefined,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+      console.error("[Chat] API error:", errorData)
+      throw new Error(errorData.error || `HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    const { response: agentResponse, thread_id: newThreadId } = data
+
+    console.log("[Chat] Received response:", {
+      threadId: newThreadId,
+      responseLength: agentResponse?.length || 0,
+      hasOrderSummary: agentResponse?.includes("order_summary") || false,
+    })
+
+    // Update thread_id if we got a new one
+    if (newThreadId && newThreadId !== currentThreadId) {
+      setThreadId(newThreadId)
+      localStorage.setItem(THREAD_ID_KEY, newThreadId)
+    }
+
+    // Try to parse order summary from response
+    const { parseOrderSummaryFromText } = await import("@/lib/api-response-types")
+    const orderSummary = parseOrderSummaryFromText(agentResponse)
+
+    if (orderSummary) {
+      console.log("[Chat] Parsed order summary:", orderSummary)
+      
+      // Display message if provided
+      const messageText = orderSummary.message
+      if (messageText) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: messageText,
+            timestamp: new Date(),
+          },
+        ])
+      }
+
+      // Display order card with full item details
+      setPendingOrderTotal(orderSummary.pricing.total)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "ORDER_CARD",
+          toolCalls: [
+            {
+              name: "build_cart",
+              args: {
+                restaurant: orderSummary.restaurant,
+                items: orderSummary.items.map((item) => item.name),
+                itemDetails: orderSummary.items, // Include full item details with prices
+              },
+            },
+            {
+              name: "compute_cost_estimate",
+              args: {
+                subtotal: orderSummary.pricing.subtotal,
+                tax: orderSummary.pricing.tax,
+                delivery: orderSummary.pricing.deliveryFee,
+              },
+              result: {
+                total: orderSummary.pricing.total,
+              },
+            },
+          ],
+          timestamp: new Date(),
+        },
+      ])
+    } else {
+      // Regular text response
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: agentResponse,
+          timestamp: new Date(),
+        },
+      ])
+    }
+  } catch (error) {
+    console.error("[Chat] Error calling agent API:", error)
+    throw error
   }
 }
 

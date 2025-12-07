@@ -72,7 +72,7 @@ export function OrderCard({ restaurant, items, subtotal, tax, deliveryFee, total
             Processing Payment...
           </>
         ) : (
-          "Confirm Order"
+          "Continue to Payment"
         )}
       </Button>
       <p className="text-center text-xs text-muted-foreground">
