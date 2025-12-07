@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Sparkles, Zap, Shield, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -11,12 +12,32 @@ export function HeroSection() {
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
           {/* Left Content */}
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-              <Sparkles className="h-4 w-4" />
-              AI-Powered Food Delivery
+            {/* Banner Image */}
+            <div className="relative overflow-hidden rounded-2xl shadow-xl mb-6">
+              <Image
+                src="/da-nom-noms-banner.png"
+                alt="DaNomNoms Banner"
+                width={800}
+                height={400}
+                className="w-full h-auto object-contain"
+                priority
+              />
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <Image
+                src="/da-nom-noms-logo.png"
+                alt="DaNomNoms Logo"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-contain"
+              />
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+                <Sparkles className="h-4 w-4" />
+                AI-Powered Food Delivery
+              </div>
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground lg:text-5xl xl:text-6xl text-balance">
-              order da Nom-Noms with <span className="text-primary">x402 on Monad</span>
+              Order food with <span className="text-primary">x402 on Monad</span>
             </h1>
             <p className="max-w-lg text-lg text-muted-foreground text-pretty">
               Just tell our AI what you&apos;re craving. We&apos;ll find the best restaurants, build your order, and

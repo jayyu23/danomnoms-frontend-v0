@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowLeft, MapPin, ChevronDown, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatInterface } from "@/components/chat-interface"
@@ -26,9 +27,13 @@ export default function ChatPage() {
               </Button>
             </Link>
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">D</span>
-              </div>
+              <Image
+                src="/da-nom-noms-logo.png"
+                alt="DaNomNoms Logo"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
+              />
               <div>
                 <h1 className="font-semibold text-foreground">DaNomNoms Agent</h1>
                 <p className="text-xs text-muted-foreground">AI-powered ordering</p>

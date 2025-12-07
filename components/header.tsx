@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
+import Image from "next/image"
 import { MapPin, Search, ShoppingBag, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WalletButton } from "@/components/wallet-button"
@@ -12,12 +14,17 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border bg-card">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">D</span>
-          </div>
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Image
+            src="/da-nom-noms-logo.png"
+            alt="DaNomNoms Logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 object-contain"
+            priority
+          />
           <span className="text-xl font-bold text-foreground">DaNomNoms</span>
-        </div>
+        </Link>
 
         {/* Address & Search - Desktop */}
         <div className="hidden flex-1 items-center gap-4 px-8 md:flex">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useSearchParams, useRouter } from "next/navigation"
+import Image from "next/image"
 import { CheckCircle2, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -22,6 +23,15 @@ export default function CheckoutSuccessPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="max-w-md w-full text-center space-y-6">
+        <Link href="/" className="flex justify-center mb-4">
+          <Image
+            src="/da-nom-noms-logo.png"
+            alt="DaNomNoms Logo"
+            width={64}
+            height={64}
+            className="h-16 w-16 object-contain"
+          />
+        </Link>
         <div className="flex justify-center">
           <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-4">
             <CheckCircle2 className="h-16 w-16 text-green-500" />
@@ -54,30 +64,37 @@ export default function CheckoutSuccessPage() {
           <p className="text-sm text-muted-foreground">
             Your delivery is being prepared. You'll receive updates in the chat.
           </p>
-          <div className="flex gap-3">
-            {txHash ? (
-              <a
-                href={`https://testnet.monadexplorer.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1"
-              >
-                <Button className="w-full">
-                  View Order Onchain
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </a>
-            ) : (
-              <Link href="/chat" className="flex-1">
-                <Button className="w-full" disabled>
-                  View Order Onchain
-                  <ArrowRight className="ml-2 h-4 w-4" />
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              {txHash ? (
+                <a
+                  href={`https://testnet.monadexplorer.com/tx/${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                >
+                  <Button className="w-full">
+                    View Order Onchain
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </a>
+              ) : (
+                <Link href="/chat" className="flex-1">
+                  <Button className="w-full" disabled>
+                    View Order Onchain
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+              <Link href="/" className="flex-1">
+                <Button variant="outline" className="w-full">
+                  Back Home
                 </Button>
               </Link>
-            )}
-            <Link href="/" className="flex-1">
+            </div>
+            <Link href="/chat" className="w-full">
               <Button variant="outline" className="w-full">
-                Back Home
+                Back to Chat
               </Button>
             </Link>
           </div>

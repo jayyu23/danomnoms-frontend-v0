@@ -10,8 +10,15 @@ const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"
 
 export const metadata: Metadata = {
   title: "DaNomNoms - AI Food Delivery Agent",
-  description: "Order Da Nom Noms with AI-powered delivery using x402 micropayments on Monad",
+  description: "Order food with AI-powered delivery using x402 micropayments on Monad",
   generator: "v0.app",
+  icons: {
+    icon: [
+      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/apple-icon.png",
+  },
 }
 
 export const viewport = {
