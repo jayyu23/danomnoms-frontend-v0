@@ -1,7 +1,8 @@
 "use client"
 
-import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { ConnectButton } from "thirdweb/react"
+import { client } from "@/lib/thirdweb.client"
 
 export function WalletButton() {
-  return <ConnectButton />
+  return <ConnectButton client={client} />
 }

@@ -2,21 +2,19 @@
 
 import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { createThirdwebClient } from "thirdweb"
+import { useActiveWallet, ConnectButton } from "thirdweb/react"
 import { wrapFetchWithPayment } from "thirdweb/x402"
-import { createWallet } from "thirdweb/wallets"
 import { Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-
-const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
-})
+import { client } from "@/lib/thirdweb.client"
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [status, setStatus] = useState<"idle" | "connecting" | "processing" | "success" | "error">("idle")
+  const wallet = useActiveWallet()
+  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle")
+  const [message, setMessage] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [txHash, setTxHash] = useState<string | null>(null)
 
@@ -26,104 +24,64 @@ export default function CheckoutPage() {
   const demoAmount = amount ? parseFloat(amount) / 1000 : 0
 
   const processPayment = async () => {
+    if (!wallet) {
+      setMessage("Please connect your wallet first")
+      return
+    }
+
     if (!amount || !orderId) {
       setError("Missing payment information")
       setStatus("error")
       return
     }
 
+    setStatus("processing")
+    setMessage("Processing payment on Monad…")
+
     try {
-      setStatus("connecting")
+      const fetchWithPayment = wrapFetchWithPayment(fetch, client, wallet)
 
-      // Connect wallet first
-      const wallet = createWallet("io.metamask")
-      await wallet.connect({ client })
-
-      setStatus("processing")
-
-      // Wrap fetch with payment
-      // wrapFetchWithPayment will automatically handle 402 responses and prompt for payment
-      // When server returns 402, it will automatically prompt user to approve USDC spend
-      const fetchPay = wrapFetchWithPayment(fetch, client, wallet)
-
-      // Make payment request to payable endpoint
-      // wrapFetchWithPayment will intercept 402, prompt for payment, then retry with payment header
       const checkoutUrl = `/api/checkout?amount=${amount}&orderId=${encodeURIComponent(orderId)}`
-      const res = await fetchPay(checkoutUrl)
+      const res = await fetchWithPayment(checkoutUrl, {
+        method: "GET",
+      })
 
-      // If we get here, payment was successful
-      const data = await res.json()
-      setTxHash(data.tx?.hash || data.tx)
-      setStatus("success")
-      
-      // Redirect to success page after 2 seconds
-      setTimeout(() => {
-        if (orderId) {
-          router.push(`/checkout/success?orderId=${orderId}&tx=${data.tx?.hash || data.tx}`)
-        }
-      }, 2000)
-    } catch (error: any) {
-      console.error("Payment error:", error)
-      setError(error.message || "Payment error occurred")
+      const json = await res.json()
+
+      if (res.ok) {
+        // Ensure tx is a string, not an object
+        const txHash = typeof json.tx === 'string' 
+          ? json.tx 
+          : json.tx?.hash || json.tx?.transaction?.hash || null;
+        setTxHash(txHash)
+        setStatus("success")
+        setMessage("Payment successful! Order confirmed.")
+        
+        // Redirect to success page after 2 seconds
+        setTimeout(() => {
+          if (orderId && txHash) {
+            router.push(`/checkout/success?orderId=${orderId}&tx=${txHash}`)
+          }
+        }, 2000)
+      } else {
+        setError(json.error || json.message || "Payment failed")
+        setStatus("error")
+        setMessage("Error from server:\n" + JSON.stringify(json, null, 2))
+      }
+    } catch (e: any) {
+      console.error("Payment error:", e)
+      setError(e?.message || "Unknown error")
       setStatus("error")
+      setMessage("Client error: " + (e?.message || "Unknown error"))
     }
   }
 
   if (status === "idle") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto p-6">
-          <h1 className="text-2xl font-bold mb-4">Complete Your Order</h1>
-          <div className="bg-secondary rounded-lg p-4 space-y-2 text-sm mb-6">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Restaurant:</span>
-              <span className="font-medium">{restaurant}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount:</span>
-              <span className="font-medium">${demoAmount.toFixed(5)} USDC</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Order ID:</span>
-              <span className="font-mono text-xs">{orderId}</span>
-            </div>
-          </div>
-          <Button onClick={processPayment} className="w-full" size="lg">
-            Pay & Confirm Order
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            You will be prompted to approve USDC spend in your wallet
-          </p>
-          <Link href="/chat" className="block mt-4">
-            <Button variant="outline" className="w-full">
-              Back to Chat
-            </Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  if (status === "connecting") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Connecting wallet...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (status === "processing") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto p-6">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Processing Payment</h1>
-          <p className="text-muted-foreground mb-4">
-            Please approve the transaction in your wallet
-          </p>
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full space-y-4">
+          <h1 className="text-2xl font-bold text-center">Complete Your Order</h1>
+          
           <div className="bg-secondary rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Restaurant:</span>
@@ -138,6 +96,72 @@ export default function CheckoutPage() {
               <span className="font-mono text-xs">{orderId}</span>
             </div>
           </div>
+
+          <div className="flex justify-center">
+            <ConnectButton client={client} />
+          </div>
+
+          {message && (
+            <div className="bg-secondary rounded-lg p-4 min-h-[100px]">
+              <pre className="text-sm whitespace-pre-wrap break-words">{message}</pre>
+            </div>
+          )}
+
+          <button
+            onClick={processPayment}
+            disabled={!wallet}
+            className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Pay & Confirm Order
+          </button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            You will be prompted to approve USDC spend in your wallet
+          </p>
+
+          <Link href="/chat" className="block">
+            <Button variant="outline" className="w-full">
+              Back to Chat
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "processing") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full space-y-4">
+          <h1 className="text-2xl font-bold text-center">Processing Payment</h1>
+          
+          <div className="bg-secondary rounded-lg p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Restaurant:</span>
+              <span className="font-medium">{restaurant}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount:</span>
+              <span className="font-medium">${demoAmount.toFixed(5)} USDC</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Order ID:</span>
+              <span className="font-mono text-xs">{orderId}</span>
+            </div>
+          </div>
+
+          {message && (
+            <div className="bg-secondary rounded-lg p-4 min-h-[100px]">
+              <pre className="text-sm whitespace-pre-wrap break-words">{message}</pre>
+            </div>
+          )}
+
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm">
+              Please approve the transaction in your wallet
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -145,16 +169,21 @@ export default function CheckoutPage() {
 
   if (status === "success") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto p-6">
-          <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Payment Successful!</h1>
-          <p className="text-muted-foreground mb-4">
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full space-y-4 text-center">
+          <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+          <h1 className="text-2xl font-bold">Payment Successful!</h1>
+          <p className="text-muted-foreground">
             Redirecting to confirmation page...
           </p>
+          {message && (
+            <div className="bg-secondary rounded-lg p-4 min-h-[100px]">
+              <pre className="text-sm whitespace-pre-wrap break-words">{message}</pre>
+            </div>
+          )}
           {txHash && (
             <p className="text-xs text-muted-foreground font-mono break-all">
-              {txHash}
+              {typeof txHash === 'string' ? txHash : JSON.stringify(txHash)}
             </p>
           )}
         </div>
@@ -163,11 +192,16 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center max-w-md mx-auto p-6">
-        <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Payment Failed</h1>
-        <p className="text-muted-foreground mb-6">{error}</p>
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-md w-full space-y-4 text-center">
+        <XCircle className="h-16 w-16 text-red-500 mx-auto" />
+        <h1 className="text-2xl font-bold">Payment Failed</h1>
+        {error && <p className="text-muted-foreground">{error}</p>}
+        {message && (
+          <div className="bg-secondary rounded-lg p-4 min-h-[100px]">
+            <pre className="text-sm whitespace-pre-wrap break-words">{message}</pre>
+          </div>
+        )}
         <div className="space-y-2">
           <Button onClick={processPayment} className="w-full">
             Try Again
