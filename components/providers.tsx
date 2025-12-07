@@ -5,6 +5,7 @@ import { WagmiProvider } from "wagmi"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RainbowKitProvider, getDefaultConfig, darkTheme } from "@rainbow-me/rainbowkit"
 import { defineChain } from "viem"
+import { ThirdwebProvider } from "thirdweb/react"
 
 // Define Monad Testnet chain
 const monadTestnet = defineChain({
@@ -38,17 +39,19 @@ const queryClient = new QueryClient()
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={darkTheme({
-            accentColor: "#8b5cf6",
-            accentColorForeground: "white",
-          })}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ThirdwebProvider>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider
+            theme={darkTheme({
+              accentColor: "#8b5cf6",
+              accentColorForeground: "white",
+            })}
+          >
+            {children}
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ThirdwebProvider>
   )
 }

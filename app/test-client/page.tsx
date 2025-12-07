@@ -1,74 +1,67 @@
 "use client";
 
 import { useState } from "react";
-import { createThirdwebClient } from "thirdweb";
+import { useActiveWallet, ConnectButton } from "thirdweb/react";
 import { wrapFetchWithPayment } from "thirdweb/x402";
-import { createWallet } from "thirdweb/wallets";
-
-const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
-});
+import { client } from "@/lib/thirdweb.client";
 
 export default function TestClientPage() {
-  const [message, setMessage] = useState("Click to pay $0.0001 USDC (zero gas on Monad testnet)");
+  const [message, setMessage] = useState("Click to pay $0.0001 USDC");
+  const [loading, setLoading] = useState(false);
+  const wallet = useActiveWallet();
 
   const payAndFetch = async () => {
-    setMessage("Connecting wallet...");
+    if (!wallet) {
+      setMessage("Please connect your wallet first");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("Paying on Monad…");
+
     try {
-      console.log("=== CLIENT: Starting payment flow ===");
-      console.log("Client ID:", process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID);
-      console.log("Client object:", client);
-      
-      const wallet = createWallet("io.metamask");
-      console.log("Wallet created, connecting...");
-      await wallet.connect({ client });
-      console.log("Wallet connected, address:", await wallet.getAccount()?.address);
-      setMessage("Wallet connected — paying...");
+      const fetchWithPayment = wrapFetchWithPayment(fetch, client, wallet);
 
-      const fetchPay = wrapFetchWithPayment(fetch, client, wallet);
-      console.log("wrapFetchWithPayment created, making request to /api/test-premium");
-      
-      // payable endpoint - pings test-premium
-      const res = await fetchPay("/api/test-premium"); // relative URL = no CORS
-      
-      console.log("=== CLIENT: Response received ===");
-      console.log("Response status:", res.status);
-      console.log("Response statusText:", res.statusText);
-      console.log("Response headers:", Object.fromEntries(res.headers.entries()));
-      console.log("Response ok:", res.ok);
-      
+      const res = await fetchWithPayment("/api/test-premium", {
+        method: "GET",
+      });
+
       const json = await res.json();
-      console.log("Response JSON:", json);
-      
-      setMessage("PAID SUCCESSFULLY! 🎉\n\n" + JSON.stringify(json, null, 2));
 
+      if (res.ok) {
+        setMessage("PAID SUCCESSFULLY!\n\n" + JSON.stringify(json, null, 2));
+      } else {
+        setMessage("Error from server:\n" + JSON.stringify(json, null, 2));
+      }
     } catch (e: any) {
-      console.error("=== CLIENT: Error occurred ===");
-      console.error("Error type:", e?.constructor?.name);
-      console.error("Error message:", e?.message);
-      console.error("Error stack:", e?.stack);
-      console.error("Error details:", e);
-      setMessage("ERROR: " + e.message);
+      setMessage("Client error: " + (e?.message || "Unknown error"));
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-            <h1>Monad testnet x402 — Thirdweb</h1>
-
-            {/* Button to pay and fetch the premium content */}
-            <button onClick={payAndFetch} style={{ padding: 12, fontSize: 16 }}>
-                Pay & Unlock Content
-            </button>
-
-            {/* Once paid, the content will be fetched and displayed here: */}
-            <pre style={{ marginTop: 16, background: "#111", color: "#0f0", padding: 12 }}>
-                {message}
-            </pre>
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-md w-full space-y-4">
+        <h1 className="text-2xl font-bold text-center">Test Premium Payment</h1>
+        
+        <div className="flex justify-center">
+          <ConnectButton client={client} />
         </div>
-    </main>
-  </div>
-  )
+
+        <div className="bg-secondary rounded-lg p-4 min-h-[100px]">
+          <pre className="text-sm whitespace-pre-wrap break-words">{message}</pre>
+        </div>
+
+        <button
+          onClick={payAndFetch}
+          disabled={loading || !wallet}
+          className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? "Processing..." : "Pay & Unlock Monad Premium"}
+        </button>
+      </div>
+    </div>
+  );
 }
